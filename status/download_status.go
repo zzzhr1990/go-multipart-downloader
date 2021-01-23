@@ -5,7 +5,7 @@ type DownloadStatus int32
 
 const (
 	// Waiting waiting for download start
-	Waiting = iota
+	Waiting int32 = iota
 	// Downloading file is downloading
 	Downloading
 	// Completed file completed
