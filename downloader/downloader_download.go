@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/zzzhr1990/go-multipart-downloader/downloaderror"
 	"github.com/zzzhr1990/go-multipart-downloader/model"
 	"github.com/zzzhr1990/go-multipart-downloader/status"
@@ -156,14 +155,14 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 		}
 
 		if currentDownloadingThread < md.opt.MaxThreads {
-
-			log.Printf("switching next downloading index: %v", currentDownloadingIndex)
 			if currentDownloadingIndex+1 > totalPieces-1 {
+				log.Printf("no blocks left to download, concurrent: %v", currentDownloadingThread)
 				continue
 				//break // no file
 			}
 			currentDownloadingIndex++
 			currentDownloadingThread++
+			log.Printf("switching next downloading index: %v, concurrent: %v", currentDownloadingIndex, currentDownloadingThread)
 			md.downPiece(currentDownloadingIndex, pieceCompleteChan, isRetry)
 		}
 	}
@@ -210,7 +209,6 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 			md.opt.ProgressUpdateFunc(percent, totalDownload, md.GetContentLength(), 0)
 		}()
 	}
-	log.Printf("downloaded percent: %v, downloaded: %v, in bytes: %v", percent, humanize.Bytes(uint64(totalDownload)), totalDownload)
 	if md.shouldContinue() {
 
 		if !allCompleted {

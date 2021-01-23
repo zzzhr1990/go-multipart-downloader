@@ -7,12 +7,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	context2 "github.com/zzzhr1990/go-multipart-downloader/contexts"
 	"github.com/zzzhr1990/go-multipart-downloader/downloaderror"
 	"github.com/zzzhr1990/go-multipart-downloader/model"
@@ -61,16 +61,59 @@ func CreateNew(opt *options.DownloadOption, errorChan chan error) *MultipartDown
 
 // startSync Download sync
 func (md *MultipartDownloader) startSync() {
+
+	// PREV CHECK
+	parent := filepath.Dir(md.opt.FileDestination)
+
+	fi, err := os.Stat(parent)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// return false
+			// not existe
+			err := os.MkdirAll(parent, 0755)
+			if err != nil {
+				log.Printf("cannot check dest dir: %v, %v", parent, err)
+				md.errorChan <- downloaderror.TaskCreateFileError
+				return
+			}
+			//
+		} else {
+			log.Printf("cannot check dest dir: %v, %v", parent, err)
+			md.errorChan <- downloaderror.TaskCreateFileError
+			return
+		}
+		// no per,
+
+	} else {
+		if !fi.IsDir() {
+			md.errorChan <- downloaderror.TaskCreateFileError
+			return
+		}
+	}
+
 	if md.opt.TimeOut < time.Second {
 		md.opt.TimeOut = time.Second * 30
 	}
-	err := md.getFileInfo()
+	tryTime := 0
+	err = md.getFileInfo()
+
+	for err != nil && tryTime < md.opt.MaxRetryCount {
+		tryTime++
+		if md.opt.RefreshURLAddressFunc != nil {
+			ret, err := md.opt.RefreshURLAddressFunc()
+			if err != nil {
+				log.Println("cannot refresh download URL", err)
+			} else {
+				md.opt.FileURI = ret
+			}
+		}
+		err = md.getFileInfo()
+	}
+
 	if err != nil {
 		md.errorChan <- err
 		return
 	}
-
-	log.Printf("size update: %v", humanize.Bytes(uint64(md.contentLength)))
 
 	// calc pieces
 	if md.opt.MaxThreads < 1 {
@@ -90,28 +133,37 @@ func (md *MultipartDownloader) startSync() {
 	}
 
 	currentIndex := 0
-	for {
-		endPos := startPos + md.opt.MaxPieceLength - 1 // Note: CLOSE
-		if endPos >= (md.contentLength - 1) {
-			endPos = md.contentLength - 1
+	if md.contentLength > 0 {
+		for {
+			endPos := startPos + md.opt.MaxPieceLength - 1 // Note: CLOSE
+			if endPos >= (md.contentLength - 1) {
+				endPos = md.contentLength - 1
+				// current: [startPos-endPos]
+				// log.Printf("[%v] - [%v]", startPos, endPos)
+				md.downloadPieces = append(md.downloadPieces, &model.PieceInfo{
+					StartPos: startPos,
+					EndPos:   endPos,
+					Index:    currentIndex,
+				})
+				currentIndex++
+				break
+			}
 			// current: [startPos-endPos]
-			// log.Printf("[%v] - [%v]", startPos, endPos)
 			md.downloadPieces = append(md.downloadPieces, &model.PieceInfo{
 				StartPos: startPos,
 				EndPos:   endPos,
 				Index:    currentIndex,
 			})
 			currentIndex++
-			break
+			startPos = endPos + 1
 		}
-		// current: [startPos-endPos]
+	} else {
+		md.supportMultiPart = false
 		md.downloadPieces = append(md.downloadPieces, &model.PieceInfo{
-			StartPos: startPos,
-			EndPos:   endPos,
+			StartPos: 0,
+			EndPos:   -1,
 			Index:    currentIndex,
 		})
-		currentIndex++
-		startPos = endPos + 1
 	}
 
 	if len(md.downloadPieces) < 1 {
@@ -123,12 +175,14 @@ func (md *MultipartDownloader) startSync() {
 	for _, v := range md.downloadPieces {
 		pc += (v.EndPos - v.StartPos + 1)
 	}
-	log.Printf("size update act: %v", humanize.Bytes(uint64(pc)))
 	// trying to read tmp file...
 
 	if len(md.downloadPieces) > 0 {
 
 		if !utils.FileExists(md.getTempFilePath(false)) || !utils.FileExists(md.getTempFilePath(true)) {
+			md.clearTempPath()
+		}
+		if !md.supportMultiPart || md.opt.ForceStart {
 			md.clearTempPath()
 		}
 
@@ -173,7 +227,7 @@ func (md *MultipartDownloader) startSync() {
 		}
 	}
 
-	md.errorChan <- md.doDownload(false)
+	md.errorChan <- md.doDownload(!md.supportMultiPart)
 }
 
 func (md *MultipartDownloader) downPiece(index int, ch chan error, retry bool) {

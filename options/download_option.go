@@ -23,6 +23,9 @@ type DownloadOption struct {
 
 	MaxRetryCount int
 
+	// ForceStart will ignore previous download progress
+	ForceStart bool
+
 	RefreshURLAddressFunc func() (string, error)
 
 	ProgressUpdateFunc func(percent int64, downloadBytes int64, totalBytes int64, downloadBytesPerSecond int64)

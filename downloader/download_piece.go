@@ -33,14 +33,19 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	startOffset := f.StartPos
 
 	completedBytes := atomic.LoadInt64(&f.CompletedBytes)
-	if completedBytes > 0 {
-		startOffset = startOffset + completedBytes
+	if md.supportMultiPart {
+		if completedBytes > 0 {
+			startOffset = startOffset + completedBytes
+		}
+
+		if startOffset > f.EndPos {
+			f.Completed = true
+			return nil
+		}
+	} else {
+		startOffset = 0
 	}
 
-	if startOffset > f.EndPos {
-		f.Completed = true
-		return nil
-	}
 	log.Printf("starting download [%v]: %v-%v", index, startOffset, f.EndPos)
 
 	//client := md.newClient()
@@ -163,7 +168,7 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 				written += wl
 				// atomic.StoreInt64(&f.CompletedBytes, 1234454)
 				cur := atomic.AddInt64(&f.CompletedBytes, wl)
-				if cur > f.EndPos-f.StartPos+1 {
+				if cur > f.EndPos-f.StartPos+1 && md.supportMultiPart {
 					rangeBytes := "bytes=" + strconv.FormatInt(startOffset, 10) + "-" + strconv.FormatInt(f.EndPos, 10)
 					log.Printf("exp Range!! %v -> %v, exp: %v, resp len: %v, cur: %v", index, rangeBytes, f.EndPos-f.StartPos+1, resp.ContentLength, cur)
 					panic("oooxxx " + strconv.Itoa(index))
