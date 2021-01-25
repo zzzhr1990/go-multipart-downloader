@@ -1,12 +1,14 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/zzzhr1990/go-multipart-downloader/downloader"
+	"github.com/zzzhr1990/go-multipart-downloader/downloaderror"
 	"github.com/zzzhr1990/go-multipart-downloader/options"
 	"github.com/zzzhr1990/go-multipart-downloader/utils"
 )
@@ -21,7 +23,7 @@ func main3() {
 func main() {
 
 	// lpLeqIj_kty1N2MpPLXt1d2cTd5p
-	oneMtestFile := "http://speedtest.choopa.net/1GBtest.bin" //"http://speedtest.choopa.net/100MBtest.bin" // "https://tx-us-ping.vultr.com/vultr.com.1000MB.bin" //"https://syd-au-ping.vultr.com/vultr.com.1000MB.bin"
+	oneMtestFile := "https://hnd-jp-ping.vultr.com/vultr.com.1000MB.bin" //"http://speedtest.choopa.net/100MBtest.bin" // "https://tx-us-ping.vultr.com/vultr.com.1000MB.bin" //"https://syd-au-ping.vultr.com/vultr.com.1000MB.bin"
 	//"https://hnd-jp-ping.vultr.com/vultr.com.100MB.bin" // "https://hnd-jp-ping.vultr.com/vultr.com.1000MB.bin"
 	str, _ := os.Getwd()
 	downloadOpthon := &options.DownloadOption{
@@ -53,6 +55,13 @@ func main() {
 
 	if err != nil {
 		log.Printf("download error: %v", err)
+		if err1, ok := err.(*downloaderror.DownloadError); ok {
+			if err2, ok := err1.SubError.(*downloaderror.PieceDownloadError); ok {
+				if err2.SubError == io.ErrUnexpectedEOF {
+					log.Printf("seems wsc file broken error: %v", err2.SubError)
+				}
+			}
+		}
 		return
 	}
 

@@ -37,11 +37,11 @@ var (
 	}
 
 	// TaskRetryFailedError not support multipart
-	TaskRetryFailedError = &DownloadError{
-		ErrorInfo:  "the task retry failed",
-		StatusCode: -6,
-		SubError:   nil,
-	}
+	//TaskRetryFailedError = &DownloadError{
+	//	ErrorInfo:  "the task retry failed",
+	//	StatusCode: -6,
+	//	SubError:   nil,
+	//}
 
 	// TaskCreateFileError not support multipart
 	TaskCreateFileError = &DownloadError{
@@ -95,5 +95,14 @@ func NewPieceTerminatedError(piece int, info string, subError error) *PieceDownl
 		// StatusCode int
 		SubError: subError,
 		Piece:    piece,
+	}
+}
+
+// NewRetryDownloadError new RetryDownloaderror
+func NewRetryDownloadError(innerError error) *DownloadError {
+	return &DownloadError{
+		ErrorInfo:  "the task retry failed",
+		StatusCode: -6,
+		SubError:   innerError,
 	}
 }

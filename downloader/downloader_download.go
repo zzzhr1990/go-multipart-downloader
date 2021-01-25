@@ -109,6 +109,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 		md.downPiece(currentDownloadingIndex, pieceCompleteChan, isRetry)
 	}
 
+	var lastError error = nil
 	for completedPieces < totalPieces {
 
 		err := <-pieceCompleteChan
@@ -132,6 +133,8 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 				} else {
 					md.downloadPieces[index].Failed = true
 					log.Printf("give up download piece: %v, after %v times retry", index, md.downloadPieces[index].Trytime)
+
+					lastError = err
 				}
 			}
 		}
@@ -213,7 +216,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 
 		if !allCompleted {
 			atomic.StoreInt32(&md.status, status.Error)
-			return downloaderror.TaskRetryFailedError
+			return downloaderror.NewRetryDownloadError(lastError)
 		}
 		atomic.StoreInt32(&md.status, status.Completed)
 		os.RemoveAll(md.getTempFilePath(true))
