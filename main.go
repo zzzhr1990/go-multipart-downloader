@@ -58,7 +58,7 @@ func main() {
 		if err1, ok := err.(*downloaderror.DownloadError); ok {
 			if err2, ok := err1.SubError.(*downloaderror.PieceDownloadError); ok {
 				if err2.SubError == io.ErrUnexpectedEOF {
-					log.Printf("seems wsc file broken error: %v", err2.SubError)
+					log.Printf("seems wsc file broken error: %v", err2.SubError) // Detect WCS Broken file
 				}
 			}
 		}
