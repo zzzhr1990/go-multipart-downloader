@@ -287,6 +287,8 @@ func (md *MultipartDownloader) getFileInfo() error {
 		md.contentLength = response.ContentLength
 		return nil
 	}
+
+	log.Printf("unexcept error code from HEAD request: %v, uri: %v, host: %v", response.StatusCode, md.opt.FileURI, md.opt.Host)
 	ctt2 := &context2.TimeWrapper{
 		Time: time.Now().Add(md.opt.TimeOut),
 	}
@@ -297,19 +299,19 @@ func (md *MultipartDownloader) getFileInfo() error {
 		log.Printf("cannot create 2nd request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
-	response, err = md.httpClient.Do(req)
+	response2, err := md.httpClient.Do(req)
 	if err != nil {
 		log.Printf("cannot do 2dn request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
-	defer response.Body.Close()
-	if response.StatusCode == http.StatusOK {
+	defer response2.Body.Close()
+	if response2.StatusCode == http.StatusOK {
 		// return downloaderror.NewHTTPStatusError(response.StatusCode)
-		md.contentLength = response.ContentLength
+		md.contentLength = response2.ContentLength
 		return nil
 	}
-	log.Printf("unexcept error code: %v", response.StatusCode)
-	return downloaderror.NewHTTPStatusError(response.StatusCode)
+	log.Printf("unexcept error code: %v, uri: %v, host: %v", response2.StatusCode, md.opt.FileURI, md.opt.Host)
+	return downloaderror.NewHTTPStatusError(response2.StatusCode)
 }
 
 func (md *MultipartDownloader) newRequestUnsafe(method string) (*http.Request, error) {
