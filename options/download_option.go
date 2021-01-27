@@ -29,4 +29,6 @@ type DownloadOption struct {
 	RefreshURLAddressFunc func() (string, error)
 
 	ProgressUpdateFunc func(percent int64, downloadBytes int64, totalBytes int64, downloadBytesPerSecond int64)
+
+	Verbose bool
 }

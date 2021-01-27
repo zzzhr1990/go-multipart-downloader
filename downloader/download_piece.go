@@ -15,8 +15,11 @@ import (
 )
 
 func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
-	log.Printf("starting download piece %v", index)
-	defer log.Printf("end download piece %v", index)
+	if md.opt.Verbose {
+		log.Printf("starting download piece %v", index)
+		defer log.Printf("end download piece %v", index)
+	}
+
 	if !md.shouldContinue() {
 		return downloaderror.TaskCanceledError
 	}
@@ -46,10 +49,9 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 		startOffset = 0
 	}
 
-	log.Printf("starting download [%v]: %v-%v", index, startOffset, f.EndPos)
-
-	//client := md.newClient()
-	// client.Timeout = 30 * time.Second
+	if md.opt.Verbose {
+		log.Printf("starting download [%v]: %v-%v", index, startOffset, f.EndPos)
+	}
 
 	ctt := &context2.TimeWrapper{
 		Time: time.Now().Add(md.opt.TimeOut),
@@ -70,25 +72,33 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	resp, err := md.httpClient.Do(req)
 
 	if err != nil {
-		log.Printf("error download piece: %v => %v", index, err)
+		if md.opt.Verbose {
+			log.Printf("error download piece: %v => %v", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		log.Printf("error download piece http code error: %v => %v", index, resp.StatusCode)
+		if md.opt.Verbose {
+			log.Printf("error download piece http code error: %v => %v", index, resp.StatusCode)
+		}
 		return downloaderror.NewHTTPStatusError(resp.StatusCode)
 	}
 
 	if resp.StatusCode == http.StatusOK && !retry {
-		log.Printf("error download piece: %v => %v, server does not support multipart", index, resp.StatusCode)
+		if md.opt.Verbose {
+			log.Printf("error download piece: %v => %v, server does not support multipart", index, resp.StatusCode)
+		}
 		return downloaderror.ServerDoesNotSupportMultipart
 	}
 
 	file, err := os.OpenFile(md.getTempFilePath(false), os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		log.Printf("error download piece: %v => %v, cannot open file", index, err)
+		if md.opt.Verbose {
+			log.Printf("error download piece: %v => %v, cannot open file", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
@@ -96,18 +106,24 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 
 	fi, err := file.Stat()
 	if err != nil {
-		log.Printf("error download piece: %v => %v, cannot stat file", index, err)
+		if md.opt.Verbose {
+			log.Printf("error download piece: %v => %v, cannot stat file", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 	if fi.IsDir() {
 		err = downloaderror.DestinationIsDirectory
-		log.Printf("error download piece: %v => %v, destination is a directory", index, err)
+		if md.opt.Verbose {
+			log.Printf("error download piece: %v => %v, destination is a directory", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	_, err = file.Seek(startOffset, 0)
 	if err != nil {
-		log.Printf("cannot get download piece [%v]: %v", index, err)
+		if md.opt.Verbose {
+			log.Printf("cannot get download piece [%v]: %v", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
@@ -170,6 +186,7 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 				cur := atomic.AddInt64(&f.CompletedBytes, wl)
 				if cur > f.EndPos-f.StartPos+1 && md.supportMultiPart {
 					rangeBytes := "bytes=" + strconv.FormatInt(startOffset, 10) + "-" + strconv.FormatInt(f.EndPos, 10)
+
 					log.Printf("exp Range!! %v -> %v, exp: %v, resp len: %v, cur: %v", index, rangeBytes, f.EndPos-f.StartPos+1, resp.ContentLength, cur)
 					panic("oooxxx " + strconv.Itoa(index))
 				}
@@ -179,7 +196,9 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 			}
 			if ew != nil {
 				// log.Printf("this is write err: %v\n", ew)
-				log.Printf("doing copy download piece [%v]: %v", index, ew)
+				if md.opt.Verbose {
+					log.Printf("doing copy download piece [%v]: %v", index, ew)
+				}
 				err = ew
 				break
 			}
@@ -197,19 +216,23 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	}
 
 	if err != nil {
-		log.Printf("cannot copy download piece [%v]: %v", index, err)
-
+		if md.opt.Verbose {
+			log.Printf("cannot copy download piece [%v]: %v", index, err)
+		}
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	if resp.ContentLength > 0 {
 		if written != resp.ContentLength {
+
 			log.Printf("cannot match content length [%v]: write: %v => need: %v", index, written, resp.ContentLength)
 			// return err
 		}
 	}
 
 	f.Completed = true
-	log.Printf("complete download piece [%v]: %v => block completed: %v", index, resp.ContentLength, f.CompletedBytes)
+	if md.opt.Verbose {
+		log.Printf("complete download piece [%v]: %v => block completed: %v", index, resp.ContentLength, f.CompletedBytes)
+	}
 	return nil
 }

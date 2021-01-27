@@ -119,7 +119,9 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 				index := val.Piece
 				if md.downloadPieces[index].Trytime < md.opt.MaxRetryCount {
 					md.downloadPieces[index].Trytime = md.downloadPieces[index].Trytime + 1
-					log.Printf("retrying downloading piece: %v, (%v / %v)", index, md.downloadPieces[index].Trytime, md.opt.MaxRetryCount)
+					if md.opt.Verbose {
+						log.Printf("retrying downloading piece: %v, (%v / %v)", index, md.downloadPieces[index].Trytime, md.opt.MaxRetryCount)
+					}
 					if md.opt.RefreshURLAddressFunc != nil {
 						ret, err := md.opt.RefreshURLAddressFunc()
 						if err != nil {
@@ -132,7 +134,9 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 					continue
 				} else {
 					md.downloadPieces[index].Failed = true
-					log.Printf("give up download piece: %v, after %v times retry", index, md.downloadPieces[index].Trytime)
+					if md.opt.Verbose {
+						log.Printf("give up download piece: %v, after %v times retry", index, md.downloadPieces[index].Trytime)
+					}
 
 					lastError = err
 				}
@@ -159,18 +163,24 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 
 		if currentDownloadingThread < md.opt.MaxThreads {
 			if currentDownloadingIndex+1 > totalPieces-1 {
-				log.Printf("no blocks left to download, concurrent: %v", currentDownloadingThread)
+				if md.opt.Verbose {
+					log.Printf("no blocks left to download, concurrent: %v", currentDownloadingThread)
+				}
 				continue
 				//break // no file
 			}
 			currentDownloadingIndex++
 			currentDownloadingThread++
-			log.Printf("switching next downloading index: %v, concurrent: %v", currentDownloadingIndex, currentDownloadingThread)
+			if md.opt.Verbose {
+				log.Printf("switching next downloading index: %v, concurrent: %v", currentDownloadingIndex, currentDownloadingThread)
+			}
 			md.downPiece(currentDownloadingIndex, pieceCompleteChan, isRetry)
 		}
 	}
 
-	log.Printf("complete download, %v, max threads: %v", reduceThreads, md.opt.MaxThreads)
+	if md.opt.Verbose {
+		log.Printf("complete download, %v, max threads: %v", reduceThreads, md.opt.MaxThreads)
+	}
 
 	if reduceThreads && !isRetry {
 		log.Printf("retrying download... %v", md.supportMultiPart)
@@ -182,7 +192,9 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 	for index, v := range md.downloadPieces {
 		if !v.Completed {
 			allCompleted = false
-			log.Printf("download not completed: %v", index)
+			if md.opt.Verbose {
+				log.Printf("download not completed: %v", index)
+			}
 		}
 	}
 

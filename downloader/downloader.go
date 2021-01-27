@@ -206,7 +206,9 @@ func (md *MultipartDownloader) startSync() {
 							if chk.CompletedBytes > chk.EndPos-chk.StartPos+1 {
 								panic("ooo " + strconv.Itoa(idx))
 							}
-							log.Printf("turn complete index: [%v] to: %v", idx, det.CompletedBytes)
+							if md.opt.Verbose {
+								log.Printf("turn complete index: [%v] to: %v", idx, det.CompletedBytes)
+							}
 						}
 						if failedCheck {
 							for _, det := range md.downloadPieces {
