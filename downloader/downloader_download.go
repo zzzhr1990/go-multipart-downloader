@@ -117,6 +117,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 			if val, ok := err.(*downloaderror.PieceDownloadError); ok {
 				index := val.Piece
 				if md.downloadPieces[index].Trytime < md.opt.MaxRetryCount {
+					time.Sleep(time.Second)
 					md.downloadPieces[index].Trytime = md.downloadPieces[index].Trytime + 1
 					if md.opt.Verbose {
 						md.logger.Infof("retrying downloading piece: %v, (%v / %v)", index, md.downloadPieces[index].Trytime, md.opt.MaxRetryCount)

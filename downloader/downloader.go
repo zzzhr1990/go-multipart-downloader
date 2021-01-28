@@ -104,6 +104,7 @@ func (md *MultipartDownloader) startSync() {
 
 	for err != nil && tryTime < md.opt.MaxRetryCount {
 		tryTime++
+		time.Sleep(time.Second)
 		if md.opt.RefreshURLAddressFunc != nil {
 			ret, err := md.opt.RefreshURLAddressFunc()
 			if err != nil {
