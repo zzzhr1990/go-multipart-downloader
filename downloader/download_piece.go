@@ -3,7 +3,6 @@ package downloader
 import (
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -16,8 +15,8 @@ import (
 
 func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	if md.opt.Verbose {
-		log.Printf("starting download piece %v", index)
-		defer log.Printf("end download piece %v", index)
+		md.logger.Infof("starting download piece %v", index)
+		defer md.logger.Infof("end download piece %v", index)
 	}
 
 	if !md.shouldContinue() {
@@ -50,7 +49,7 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	}
 
 	if md.opt.Verbose {
-		log.Printf("starting download [%v]: %v-%v", index, startOffset, f.EndPos)
+		md.logger.Infof("starting download [%v]: %v-%v", index, startOffset, f.EndPos)
 	}
 
 	ctt := &context2.TimeWrapper{
@@ -72,33 +71,28 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	resp, err := md.httpClient.Do(req)
 
 	if err != nil {
-		if md.opt.Verbose {
-			log.Printf("error download piece: %v => %v", index, err)
-		}
+		md.logger.Errorf("error download piece: %v => %v", index, err)
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		if md.opt.Verbose {
-			log.Printf("error download piece http code error: %v => %v", index, resp.StatusCode)
-		}
+		md.logger.Errorf("error download piece http code error: %v => %v", index, resp.StatusCode)
+
 		return downloaderror.NewHTTPStatusError(resp.StatusCode)
 	}
 
 	if resp.StatusCode == http.StatusOK && !retry {
-		if md.opt.Verbose {
-			log.Printf("error download piece: %v => %v, server does not support multipart", index, resp.StatusCode)
-		}
+		md.logger.Errorf("error download piece: %v => %v, server does not support multipart", index, resp.StatusCode)
+
 		return downloaderror.ServerDoesNotSupportMultipart
 	}
 
 	file, err := os.OpenFile(md.getTempFilePath(false), os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		if md.opt.Verbose {
-			log.Printf("error download piece: %v => %v, cannot open file", index, err)
-		}
+		md.logger.Errorf("error download piece: %v => %v, cannot open file", index, err)
+
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
@@ -106,62 +100,23 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 
 	fi, err := file.Stat()
 	if err != nil {
-		if md.opt.Verbose {
-			log.Printf("error download piece: %v => %v, cannot stat file", index, err)
-		}
+		md.logger.Errorf("error download piece: %v => %v, cannot stat file", index, err)
+
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 	if fi.IsDir() {
 		err = downloaderror.DestinationIsDirectory
-		if md.opt.Verbose {
-			log.Printf("error download piece: %v => %v, destination is a directory", index, err)
-		}
+		md.logger.Errorf("error download piece: %v => %v, destination is a directory", index, err)
+
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	_, err = file.Seek(startOffset, 0)
 	if err != nil {
-		if md.opt.Verbose {
-			log.Printf("cannot get download piece [%v]: %v", index, err)
-		}
+		md.logger.Errorf("cannot get download piece [%v]: %v", index, err)
+
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
-
-	// writer := bufio.NewWriter(file)
-	//
-	/*
-		for true {
-			if err != nil && err != io.EOF {
-				// Here Retry...
-				log.Printf("error download piece: %v => %v, progress ", index, err)
-				return err
-			}
-			// block.retryCount = 0
-			i64 := int64(len(buffer[:i]))
-			needSize := block.EndOffset + 1 - block.BeginOffset
-			if i64 > needSize {
-				i64 = needSize
-				err = io.EOF
-			}
-			_, e := writer.Write(buffer[:i64])
-			if e != nil {
-				block.Downloading = false
-				client.callFailed(e)
-				ch <- false
-				return
-			}
-			block.BeginOffset += i64
-			block.DownloadedSize += i64
-			client.DownloadedSize += i64
-			if err == io.EOF || block.BeginOffset > block.EndOffset {
-				block.Completed = true
-				break
-			}
-			i, err = resp.Body.Read(buffer)
-		}
-	*/
-
-	// fileWritten, err := io.Copy(file, resp.Body)
 
 	size := 32 * 1024
 	buf := make([]byte, size)
@@ -187,7 +142,7 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 				if cur > f.EndPos-f.StartPos+1 && md.supportMultiPart {
 					rangeBytes := "bytes=" + strconv.FormatInt(startOffset, 10) + "-" + strconv.FormatInt(f.EndPos, 10)
 
-					log.Printf("exp Range!! %v -> %v, exp: %v, resp len: %v, cur: %v", index, rangeBytes, f.EndPos-f.StartPos+1, resp.ContentLength, cur)
+					md.logger.Errorf("exp Range!! %v -> %v, exp: %v, resp len: %v, cur: %v", index, rangeBytes, f.EndPos-f.StartPos+1, resp.ContentLength, cur)
 					panic("oooxxx " + strconv.Itoa(index))
 				}
 				if f.Trytime > 0 {
@@ -195,9 +150,8 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 				}
 			}
 			if ew != nil {
-				// log.Printf("this is write err: %v\n", ew)
 				if md.opt.Verbose {
-					log.Printf("doing copy download piece [%v]: %v", index, ew)
+					md.logger.Infof("doing copy download piece [%v]: %v", index, ew)
 				}
 				err = ew
 				break
@@ -216,23 +170,23 @@ func (md *MultipartDownloader) downPieceSync(index int, retry bool) error {
 	}
 
 	if err != nil {
-		if md.opt.Verbose {
-			log.Printf("cannot copy download piece [%v]: %v", index, err)
-		}
+
+		md.logger.Errorf("cannot copy download piece [%v]: %v", index, err)
+
 		return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 	}
 
 	if resp.ContentLength > 0 {
-		if written != resp.ContentLength {
+		if written != resp.ContentLength && resp.ContentLength > -1 {
 
-			log.Printf("cannot match content length [%v]: write: %v => need: %v", index, written, resp.ContentLength)
+			md.logger.Errorf("cannot match content length [%v]: write: %v => need: %v", index, written, resp.ContentLength)
 			// return err
 		}
 	}
 
 	f.Completed = true
 	if md.opt.Verbose {
-		log.Printf("complete download piece [%v]: %v => block completed: %v", index, resp.ContentLength, f.CompletedBytes)
+		md.logger.Infof("complete download piece [%v]: %v => block completed: %v", index, resp.ContentLength, f.CompletedBytes)
 	}
 	return nil
 }

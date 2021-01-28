@@ -26,7 +26,7 @@ func main() {
 	oneMtestFile := "https://hnd-jp-ping.vultr.com/vultr.com.1000MB.bin" //"http://speedtest.choopa.net/100MBtest.bin" // "https://tx-us-ping.vultr.com/vultr.com.1000MB.bin" //"https://syd-au-ping.vultr.com/vultr.com.1000MB.bin"
 	//"https://hnd-jp-ping.vultr.com/vultr.com.100MB.bin" // "https://hnd-jp-ping.vultr.com/vultr.com.1000MB.bin"
 	str, _ := os.Getwd()
-	downloadOpthon := &options.DownloadOption{
+	downloadOption := &options.DownloadOption{
 		FileURI:         oneMtestFile,
 		TimeOut:         time.Second * 20,
 		MaxThreads:      8,
@@ -41,7 +41,7 @@ func main() {
 		// Host:            "",
 	}
 
-	cdl := downloader.CreateNew(downloadOpthon, nil)
+	cdl := downloader.CreateNew(downloadOption, nil)
 
 	errorChan, err := cdl.StartAsync()
 	if err != nil {
@@ -65,5 +65,13 @@ func main() {
 		return
 	}
 
-	log.Printf("download completed: %v, status: %v, file: %v", cdl.GetContentLength(), cdl.GetStatus(), downloadOpthon.FileDestination)
+	f, e := utils.ComputeWcsFileEtag(downloadOption.FileDestination)
+	if e != nil {
+		log.Printf("seems wsc file broken error: %v", e)
+		return
+	}
+
+	log.Printf("etag: %v", f)
+
+	log.Printf("download completed: %v, status: %v, file: %v", cdl.GetContentLength(), cdl.GetStatus(), downloadOption.FileDestination)
 }

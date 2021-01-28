@@ -1,6 +1,10 @@
 package options
 
-import "time"
+import (
+	"time"
+
+	"github.com/zzzhr1990/go-multipart-downloader/model"
+)
 
 // DownloadOption opt for download
 type DownloadOption struct {
@@ -31,4 +35,6 @@ type DownloadOption struct {
 	ProgressUpdateFunc func(percent int64, downloadBytes int64, totalBytes int64, downloadBytesPerSecond int64)
 
 	Verbose bool
+
+	Logger model.ILogger
 }
