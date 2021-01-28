@@ -77,13 +77,13 @@ func (md *MultipartDownloader) startSync() {
 			// not existe
 			err := os.MkdirAll(parent, 0755)
 			if err != nil {
-				md.logger.Errorf("cannot check dest dir: %v, %v", parent, err)
+				md.logger.Errorf("downloader::log cannot check dest dir: %v, %v", parent, err)
 				md.errorChan <- downloaderror.TaskCreateFileError
 				return
 			}
 			//
 		} else {
-			md.logger.Errorf("cannot check dest dir: %v, %v", parent, err)
+			md.logger.Errorf("downloader::log cannot check dest dir: %v, %v", parent, err)
 			md.errorChan <- downloaderror.TaskCreateFileError
 			return
 		}
@@ -108,7 +108,7 @@ func (md *MultipartDownloader) startSync() {
 		if md.opt.RefreshURLAddressFunc != nil {
 			ret, err := md.opt.RefreshURLAddressFunc()
 			if err != nil {
-				md.logger.Errorf("cannot refresh download URL", err)
+				md.logger.Errorf("downloader::log cannot refresh download URL", err)
 			} else {
 				md.opt.FileURI = ret
 			}
@@ -211,7 +211,7 @@ func (md *MultipartDownloader) startSync() {
 								panic("ooo " + strconv.Itoa(idx))
 							}
 							if md.opt.Verbose {
-								md.logger.Infof("turn complete index: [%v] to: %v", idx, det.CompletedBytes)
+								md.logger.Infof("downloader::log turn complete index: [%v] to: %v", idx, det.CompletedBytes)
 							}
 						}
 						if failedCheck {
@@ -284,14 +284,14 @@ func (md *MultipartDownloader) getFileInfo() error {
 	defer cancel()
 	req, err := md.newRequestWithContext(ctx, http.MethodHead)
 	if err != nil {
-		md.logger.Errorf("cannot create request: %v, => %v", md.opt.FileURI, err)
+		md.logger.Errorf("downloader::log cannot create request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
 	// client := md.newClient()
 	// defer client.CloseIdleConnections()
 	response, err := md.httpClient.Do(req)
 	if err != nil {
-		md.logger.Errorf("cannot do request: %v, => %v", md.opt.FileURI, err)
+		md.logger.Errorf("downloader::log cannot do request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
 	defer response.Body.Close()
@@ -301,7 +301,7 @@ func (md *MultipartDownloader) getFileInfo() error {
 		return nil
 	}
 
-	md.logger.Errorf("unexcept error code from HEAD request: %v, uri: %v, host: %v", response.StatusCode, md.opt.FileURI, md.opt.Host)
+	md.logger.Errorf("downloader::log unexcept error code from HEAD request: %v, uri: %v, host: %v", response.StatusCode, md.opt.FileURI, md.opt.Host)
 	ctt2 := &context2.TimeWrapper{
 		Time: time.Now().Add(md.opt.TimeOut),
 	}
@@ -309,12 +309,12 @@ func (md *MultipartDownloader) getFileInfo() error {
 	defer cancel2()
 	req, err = md.newRequestWithContext(ctx2, http.MethodGet)
 	if err != nil {
-		md.logger.Errorf("cannot create 2nd request: %v, => %v", md.opt.FileURI, err)
+		md.logger.Errorf("downloader::log cannot create 2nd request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
 	response2, err := md.httpClient.Do(req)
 	if err != nil {
-		md.logger.Errorf("cannot do 2dn request: %v, => %v", md.opt.FileURI, err)
+		md.logger.Errorf("downloader::log cannot do 2dn request: %v, => %v", md.opt.FileURI, err)
 		return err
 	}
 	defer response2.Body.Close()
@@ -323,7 +323,7 @@ func (md *MultipartDownloader) getFileInfo() error {
 		md.contentLength = response2.ContentLength
 		return nil
 	}
-	md.logger.Errorf("unexcept error code: %v, uri: %v, host: %v", response2.StatusCode, md.opt.FileURI, md.opt.Host)
+	md.logger.Errorf("downloader::log unexcept error code: %v, uri: %v, host: %v", response2.StatusCode, md.opt.FileURI, md.opt.Host)
 	return downloaderror.NewHTTPStatusError(response2.StatusCode)
 }
 

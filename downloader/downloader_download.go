@@ -120,12 +120,12 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 					time.Sleep(time.Second)
 					md.downloadPieces[index].Trytime = md.downloadPieces[index].Trytime + 1
 					if md.opt.Verbose {
-						md.logger.Infof("retrying downloading piece: %v, (%v / %v)", index, md.downloadPieces[index].Trytime, md.opt.MaxRetryCount)
+						md.logger.Infof("downloader::log downloader:: retrying downloading piece: %v, (%v / %v)", index, md.downloadPieces[index].Trytime, md.opt.MaxRetryCount)
 					}
 					if md.opt.RefreshURLAddressFunc != nil {
 						ret, err := md.opt.RefreshURLAddressFunc()
 						if err != nil {
-							md.logger.Errorf("cannot refresh download URL", err)
+							md.logger.Errorf("downloader::log cannot refresh download URL", err)
 						} else {
 							md.opt.FileURI = ret
 						}
@@ -135,7 +135,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 				} else {
 					md.downloadPieces[index].Failed = true
 					if md.opt.Verbose {
-						md.logger.Errorf("give up download piece: %v, after %v times retry", index, md.downloadPieces[index].Trytime)
+						md.logger.Errorf("downloader::log give up download piece: %v, after %v times retry", index, md.downloadPieces[index].Trytime)
 					}
 
 					lastError = err
@@ -164,7 +164,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 		if currentDownloadingThread < md.opt.MaxThreads {
 			if currentDownloadingIndex+1 > totalPieces-1 {
 				if md.opt.Verbose {
-					md.logger.Infof("no blocks left to download, concurrent: %v", currentDownloadingThread)
+					md.logger.Infof("downloader::log no blocks left to download, concurrent: %v", currentDownloadingThread)
 				}
 				continue
 				//break // no file
@@ -172,18 +172,18 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 			currentDownloadingIndex++
 			currentDownloadingThread++
 			if md.opt.Verbose {
-				md.logger.Infof("switching next downloading index: %v, concurrent: %v", currentDownloadingIndex, currentDownloadingThread)
+				md.logger.Infof("downloader::log switching next downloading index: %v, concurrent: %v", currentDownloadingIndex, currentDownloadingThread)
 			}
 			md.downPiece(currentDownloadingIndex, pieceCompleteChan, isRetry)
 		}
 	}
 
 	if md.opt.Verbose {
-		md.logger.Infof("complete download, %v, max threads: %v", reduceThreads, md.opt.MaxThreads)
+		md.logger.Infof("downloader::log complete download, %v, max threads: %v", reduceThreads, md.opt.MaxThreads)
 	}
 
 	if reduceThreads && !isRetry {
-		md.logger.Infof("retrying download... %v", md.supportMultiPart)
+		md.logger.Infof("downloader::log retrying download... %v", md.supportMultiPart)
 		return md.doDownload(true)
 	}
 
@@ -193,7 +193,7 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 		if !v.Completed {
 			allCompleted = false
 			if md.opt.Verbose {
-				md.logger.Infof("download not completed: %v", index)
+				md.logger.Infof("downloader::log download not completed: %v", index)
 			}
 		}
 	}
@@ -245,13 +245,13 @@ func (md *MultipartDownloader) doDownload(isRetry bool) error {
 func (md *MultipartDownloader) syncDownloadProgress(d []*model.PieceInfo) error {
 	jData, err := json.Marshal(d)
 	if err != nil {
-		md.logger.Errorf("cannot marshal err: %v", err)
+		md.logger.Errorf("downloader::log cannot marshal err: %v", err)
 		return err
 	}
 
 	file, err := os.OpenFile(md.getTempFilePath(true), os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
 	if err != nil {
-		md.logger.Errorf("error sync progress: %v => %v, cannot open file", "tmp files", err)
+		md.logger.Errorf("downloader::log error sync progress: %v => %v, cannot open file", "tmp files", err)
 		// return downloaderror.NewPieceTerminatedError(index, err.Error(), err)
 		return err
 	}
@@ -260,7 +260,7 @@ func (md *MultipartDownloader) syncDownloadProgress(d []*model.PieceInfo) error 
 
 	_, err = file.Write(jData)
 	if err != nil {
-		md.logger.Errorf("error sync progress: %v => %v, cannot write file", "tmp files", err)
+		md.logger.Errorf("downloader::log error sync progress: %v => %v, cannot write file", "tmp files", err)
 	}
 
 	return err
